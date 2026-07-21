@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>임대 문의 관리 · 수유역 2층 상가</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root{--ink:#14151a;--paper:#f5f2ea;--panel:#fff;--line:#e4ded0;--brand:#0e5c4a;--accent:#ff5a3c;--mut:#6b6b60}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'IBM Plex Sans KR',system-ui,sans-serif;background:var(--paper);color:var(--ink);line-height:1.6}
+  .wrap{max-width:900px;margin:0 auto;padding:32px 20px}
+  h1{font-size:24px;font-weight:700}
+  .sub{color:var(--mut);font-size:14px;margin-top:4px;margin-bottom:24px}
+  .gate{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:24px;max-width:420px}
+  .gate label{display:block;font-size:13px;font-weight:600;margin-bottom:8px}
+  .gate input{width:100%;font-family:inherit;font-size:15px;padding:11px 13px;border:1px solid var(--line);border-radius:10px;background:#fbfaf6}
+  .gate input:focus{outline:2px solid var(--brand)}
+  .gate button{margin-top:14px;width:100%;background:var(--brand);color:#fff;border:0;border-radius:10px;padding:13px;font-family:inherit;font-size:15px;font-weight:700;cursor:pointer}
+  .gate .err{color:var(--accent);font-size:13px;margin-top:10px;display:none}
+  .bar{display:flex;align-items:center;gap:12px;margin-bottom:18px}
+  .count{background:var(--brand);color:#fff;font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:13px;border-radius:100px;padding:4px 12px}
+  .refresh{margin-left:auto;background:var(--ink);color:#fff;border:0;border-radius:9px;padding:9px 14px;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:12px}
+  .chead{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:8px}
+  .cname{font-weight:700;font-size:16px}
+  .cfloor{font-size:12px;font-weight:600;background:#f2f4f0;color:var(--brand);border-radius:100px;padding:2px 10px}
+  .cdate{margin-left:auto;font-size:12px;color:var(--mut);font-family:'IBM Plex Mono',monospace}
+  .cmeta{font-size:13.5px;color:#54544b;margin-bottom:8px}
+  .cmeta a{color:var(--brand);text-decoration:none;font-weight:600}
+  .cmsg{font-size:14.5px;white-space:pre-wrap;background:#fbfaf6;border-radius:9px;padding:12px 14px}
+  .empty{color:var(--mut);text-align:center;padding:40px}
+  .hidden{display:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>임대 문의 관리</h1>
+  <div class="sub">수유역 2층·3층 상가 · 임대인 전용 페이지</div>
+
+  <div id="gate" class="gate">
+    <label for="pw">관리자 비밀번호</label>
+    <input type="password" id="pw" placeholder="비밀번호를 입력하세요" autocomplete="current-password">
+    <button id="loginBtn">확인</button>
+    <div class="err" id="gateErr">비밀번호가 올바르지 않습니다.</div>
+  </div>
+
+  <div id="panel" class="hidden">
+    <div class="bar">
+      <span class="count" id="count">0건</span>
+      <button class="refresh" id="refreshBtn">새로고침</button>
+    </div>
+    <div id="list"></div>
+  </div>
+</div>
+
+<script>
+  let cachedPw = '';
+  const gate=document.getElementById('gate');
+  const panel=document.getElementById('panel');
+  const pwInput=document.getElementById('pw');
+  const gateErr=document.getElementById('gateErr');
+
+  async function load(pw){
+    const r=await fetch('/api/admin/inquiries',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({password:pw})
+    });
+    if(r.status===401){ return {ok:false}; }
+    return r.json();
+  }
+
+  function esc(s){return (s||'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));}
+
+  function render(items){
+    document.getElementById('count').textContent=items.length+'건';
+    const list=document.getElementById('list');
+    if(!items.length){ list.innerHTML='<div class="empty">아직 접수된 문의가 없습니다.</div>'; return; }
+    list.innerHTML=items.map(it=>{
+      const d=new Date(it.created_at);
+      const ds=d.toLocaleString('ko-KR',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
+      const mail=it.email?` · <a href="mailto:${esc(it.email)}">${esc(it.email)}</a>`:'';
+      const biz=it.biz?` · 희망업종: ${esc(it.biz)}`:'';
+      return `<div class="card">
+        <div class="chead">
+          <span class="cname">${esc(it.name)}</span>
+          ${it.floor?`<span class="cfloor">${esc(it.floor)}</span>`:''}
+          <span class="cdate">${ds}</span>
+        </div>
+        <div class="cmeta">📞 <a href="tel:${esc(it.phone)}">${esc(it.phone)}</a>${mail}${biz}</div>
+        <div class="cmsg">${esc(it.message)}</div>
+      </div>`;
+    }).join('');
+  }
+
+  async function doLogin(){
+    const pw=pwInput.value.trim();
+    if(!pw) return;
+    const res=await load(pw);
+    if(res && res.ok){
+      cachedPw=pw;
+      gate.classList.add('hidden');
+      panel.classList.remove('hidden');
+      render(res.items);
+    }else{
+      gateErr.style.display='block';
+    }
+  }
+
+  document.getElementById('loginBtn').addEventListener('click',doLogin);
+  pwInput.addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
+  document.getElementById('refreshBtn').addEventListener('click',async()=>{
+    const res=await load(cachedPw); if(res&&res.ok) render(res.items);
+  });
+</script>
+</body>
+</html>
