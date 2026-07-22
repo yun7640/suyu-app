@@ -1,5 +1,5 @@
 {
-  "name": "suyu-inquiry",
+  "name": "suyu-lease",
   "version": "1.0.0",
   "description": "수유역 2층 상가 임대 대시보드 + 문의 게시판",
   "main": "server.js",
